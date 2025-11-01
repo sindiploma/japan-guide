@@ -320,7 +320,8 @@ function showSearchPanel(locations, map) {
     // Debounce the search
     searchTimeout = setTimeout(async () => {
       try {
-        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+        // Use relative URL in production, localhost in development
+        const apiUrl = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3000' : '');
         const response = await fetch(`${apiUrl}/api/places-search?query=${encodeURIComponent(query)}`);
         const data = await response.json();
 

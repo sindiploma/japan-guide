@@ -267,7 +267,8 @@ async function addSearchResultToNotion(location) {
     button.textContent = 'Adding...';
     button.disabled = true;
 
-    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+    // Use relative URL in production, localhost in development
+    const apiUrl = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3000' : '');
     const response = await fetch(`${apiUrl}/api/add-location`, {
       method: 'POST',
       headers: {
