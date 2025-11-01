@@ -110,6 +110,8 @@ function initializeDragToDismiss() {
 
     // Only allow dragging down
     if (deltaY > 0) {
+      // Prevent pull-to-refresh on mobile
+      e.preventDefault();
       card.style.transform = `translateY(${deltaY}px)`;
       // Add visual feedback - reduce opacity as user drags
       const opacity = Math.max(0.5, 1 - (deltaY / 300));
@@ -136,7 +138,7 @@ function initializeDragToDismiss() {
 
   // Touch events
   handle.addEventListener('touchstart', startDrag, { passive: true });
-  document.addEventListener('touchmove', onDrag, { passive: true });
+  document.addEventListener('touchmove', onDrag, { passive: false });
   document.addEventListener('touchend', endDrag);
 
   // Mouse events
