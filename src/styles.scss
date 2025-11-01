@@ -1,0 +1,218 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+$primary-font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+$primary-color: #333;
+$secondary-color: #666;
+$error-color: #ff4444;
+$shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+
+body {
+  font-family: $primary-font;
+}
+
+#map {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 100%;
+}
+
+.loading {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: white;
+  padding: 20px 40px;
+  border-radius: 8px;
+  box-shadow: $shadow;
+  z-index: 1000;
+  font-size: 16px;
+  color: $primary-color;
+}
+
+.error {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: $error-color;
+  color: white;
+  padding: 15px 30px;
+  border-radius: 8px;
+  z-index: 1000;
+  max-width: 80%;
+  box-shadow: $shadow;
+}
+
+// Bottom location card
+.location-card {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: white;
+  border-radius: 20px 20px 0 0;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
+  transform: translateY(100%);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 1000;
+  max-width: 600px;
+  margin: 0 auto;
+
+  &.active {
+    transform: translateY(0);
+  }
+
+  .card-handle {
+    width: 40px;
+    height: 4px;
+    background: #d0d0d0;
+    border-radius: 2px;
+    margin: 12px auto 8px;
+  }
+
+  .card-content {
+    padding: 0 24px 24px;
+    max-height: 60vh;
+    overflow-y: auto;
+    position: relative;
+  }
+
+  h3 {
+    margin: 0 0 12px 0;
+    color: $primary-color;
+    font-size: 24px;
+    font-weight: 600;
+  }
+
+  p {
+    margin: 8px 0;
+    color: $secondary-color;
+    font-size: 14px;
+    line-height: 1.6;
+
+    &#card-address {
+      font-size: 13px;
+      color: #888;
+      margin-bottom: 12px;
+    }
+
+    &#card-coordinates {
+      font-size: 12px;
+      color: #aaa;
+      margin-top: 12px;
+    }
+
+    &:empty {
+      display: none;
+    }
+  }
+}
+
+// Chips container
+#card-chips {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+
+  &:empty {
+    display: none;
+  }
+}
+
+// Chip base styles
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: 16px;
+  font-size: 13px;
+  font-weight: 500;
+  border: 1px solid;
+  transition: all 0.2s ease;
+}
+
+// Type chip - colored with white text
+.chip-type {
+  color: white;
+  border-width: 1px;
+}
+
+// Group chip - grey border, no background
+.chip-group {
+  background: transparent;
+  color: $secondary-color;
+  border-color: #d0d0d0;
+}
+
+// Photos container
+.card-photos {
+  margin: 16px 0;
+
+  &:empty {
+    display: none;
+  }
+
+  .photos-loading {
+    text-align: center;
+    padding: 20px;
+    color: $secondary-color;
+    font-size: 14px;
+  }
+
+  .no-photos {
+    text-align: center;
+    padding: 12px;
+    color: #aaa;
+    font-size: 13px;
+    font-style: italic;
+  }
+}
+
+// Photos slider
+.photos-slider {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding: 8px 0;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+
+  // Hide scrollbar but keep functionality
+  scrollbar-width: thin;
+  scrollbar-color: #d0d0d0 transparent;
+
+  &::-webkit-scrollbar {
+    height: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: #d0d0d0;
+    border-radius: 3px;
+  }
+
+  .location-photo {
+    flex-shrink: 0;
+    width: 200px;
+    height: 150px;
+    object-fit: cover;
+    border-radius: 8px;
+    scroll-snap-align: start;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+
+    &:hover {
+      transform: scale(1.05);
+    }
+  }
+}

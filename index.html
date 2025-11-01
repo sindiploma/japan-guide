@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Japan Map - Locations from Notion</title>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v3.0.1/mapbox-gl.css" rel="stylesheet" />
+  </head>
+  <body>
+    <div id="loading" class="loading">Loading locations from Notion...</div>
+    <div id="map"></div>
+
+    <!-- Bottom card for location details -->
+    <div id="location-card" class="location-card">
+      <div class="card-handle"></div>
+      <div class="card-content">
+        <h3 id="card-title"></h3>
+        <div id="card-chips"></div>
+        <div id="card-photos" class="card-photos"></div>
+        <p id="card-address"></p>
+        <p id="card-description"></p>
+        <p id="card-coordinates"></p>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
