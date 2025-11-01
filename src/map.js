@@ -50,7 +50,8 @@ function getNotionColor(notionColorName) {
  */
 async function fetchLocationPhotos(location) {
   try {
-    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+    // Use relative URL for production (Vercel), fallback to localhost for dev
+    const apiUrl = import.meta.env.VITE_API_URL || '';
     const params = new URLSearchParams({
       name: location.name,
       latitude: location.latitude,

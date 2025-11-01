@@ -4,7 +4,8 @@
  */
 export async function fetchLocationsFromNotion() {
   try {
-    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+    // Use relative URL for production (Vercel), fallback to localhost for dev
+    const apiUrl = import.meta.env.VITE_API_URL || '';
     const response = await fetch(`${apiUrl}/api/locations`);
 
     if (!response.ok) {
