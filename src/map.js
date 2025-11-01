@@ -1,7 +1,7 @@
 import mapboxgl from 'mapbox-gl';
 
 /**
- * Initialize Mapbox map centered on Japan
+ * Initialize Mapbox map centered on Barcelona with globe view
  */
 export function initializeMap() {
   mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN;
@@ -13,8 +13,9 @@ export function initializeMap() {
   const map = new mapboxgl.Map({
     container: 'map',
     style: 'mapbox://styles/mapbox/light-v11',
-    center: [138.2529, 36.2048], // Center of Japan
-    zoom: 5,
+    center: [2.1734, 41.3851], // Barcelona, Spain
+    zoom: 1.5, // Zoomed out to see full globe
+    projection: 'globe', // Enable globe projection
   });
 
   // Add navigation controls
@@ -421,7 +422,7 @@ export function addMarkersToMap(map, locations) {
 
   console.log(`Added ${locations.length} locations to the map with clustering enabled`);
 
-  // Fit map to show all markers if there are any
+  // Animate to Japan and fit map to show all markers if there are any
   if (locations.length > 0) {
     const bounds = new mapboxgl.LngLatBounds();
 
@@ -429,9 +430,12 @@ export function addMarkersToMap(map, locations) {
       bounds.extend(location.coordinates);
     });
 
+    // Animate to the bounds with a smooth transition
     map.fitBounds(bounds, {
       padding: 50,
       maxZoom: 12,
+      duration: 4000, // 2 second animation
+      essential: true, // This animation is considered essential for accessibility
     });
   }
 }
