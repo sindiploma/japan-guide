@@ -85,6 +85,76 @@ async function fetchLocationPhotos(location) {
 }
 
 /**
+ * Initialize drag-to-dismiss functionality for the location card
+ */
+function initializeDragToDismiss() {
+  const card = document.getElementById('location-card');
+  const handle = card.querySelector('.card-handle');
+
+  let startY = 0;
+  let currentY = 0;
+  let isDragging = false;
+
+  // Handle both touch and mouse events
+  const startDrag = (e) => {
+    isDragging = true;
+    startY = e.type === 'touchstart' ? e.touches[0].clientY : e.clientY;
+    card.style.transition = 'none';
+  };
+
+  const onDrag = (e) => {
+    if (!isDragging) return;
+
+    currentY = e.type === 'touchmove' ? e.touches[0].clientY : e.clientY;
+    const deltaY = currentY - startY;
+
+    // Only allow dragging down
+    if (deltaY > 0) {
+      card.style.transform = `translateY(${deltaY}px)`;
+      // Add visual feedback - reduce opacity as user drags
+      const opacity = Math.max(0.5, 1 - (deltaY / 300));
+      card.style.opacity = opacity;
+    }
+  };
+
+  const endDrag = () => {
+    if (!isDragging) return;
+    isDragging = false;
+
+    const deltaY = currentY - startY;
+    card.style.transition = 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease';
+
+    // Dismiss if dragged down more than 100px
+    if (deltaY > 100) {
+      hideLocationCard();
+    } else {
+      // Snap back to original position
+      card.style.transform = 'translateY(0)';
+      card.style.opacity = '1';
+    }
+  };
+
+  // Touch events
+  handle.addEventListener('touchstart', startDrag, { passive: true });
+  document.addEventListener('touchmove', onDrag, { passive: true });
+  document.addEventListener('touchend', endDrag);
+
+  // Mouse events
+  handle.addEventListener('mousedown', startDrag);
+  document.addEventListener('mousemove', onDrag);
+  document.addEventListener('mouseup', endDrag);
+
+  // Add cursor pointer to handle
+  handle.style.cursor = 'grab';
+  handle.addEventListener('mousedown', () => {
+    handle.style.cursor = 'grabbing';
+  });
+  document.addEventListener('mouseup', () => {
+    handle.style.cursor = 'grab';
+  });
+}
+
+/**
  * Show location details in bottom card
  */
 async function showLocationCard(location, map) {
@@ -157,6 +227,9 @@ function hideLocationCard() {
  * Add markers to the map from location data with clustering
  */
 export function addMarkersToMap(map, locations) {
+  // Initialize drag-to-dismiss functionality
+  initializeDragToDismiss();
+
   // Close card when clicking on map
   map.on('click', (e) => {
     // Only close if clicking on the map itself, not on a marker
