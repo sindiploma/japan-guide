@@ -128,7 +128,17 @@ function initializeDragToDismiss() {
 
     // Dismiss if dragged down more than 100px
     if (deltaY > 100) {
-      hideLocationCard();
+      // Animate to fully dismissed position
+      card.style.transform = 'translateY(100%)';
+      card.style.opacity = '0';
+
+      // After animation completes, remove active class and reset styles
+      setTimeout(() => {
+        card.classList.remove('active');
+        card.style.transform = '';
+        card.style.opacity = '';
+        card.style.transition = '';
+      }, 300);
     } else {
       // Snap back to original position
       card.style.transform = 'translateY(0)';
