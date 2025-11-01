@@ -2,12 +2,10 @@ import express from 'express';
 import cors from 'cors';
 import notionPkg from '@notionhq/client';
 import dotenv from 'dotenv';
-import mbxGeocoding from '@mapbox/mapbox-sdk/services/geocoding.js';
 
 dotenv.config();
 
 const { Client } = notionPkg;
-const geocodingClient = mbxGeocoding({ accessToken: process.env.VITE_MAPBOX_TOKEN });
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -20,20 +18,44 @@ const notion = new Client({
   auth: process.env.VITE_NOTION_API_KEY,
 });
 
-// Geocode an address using Mapbox and save to Notion
+// Geocode an address using Google Places API (Text Search) and save to Notion
 async function geocodeAndSaveAddress(pageId, address) {
   try {
-    const response = await geocodingClient
-      .forwardGeocode({
-        query: address,
-        countries: ['JP'], // Limit to Japan
-        limit: 1,
-      })
-      .send();
+    const apiKey = process.env.GOOGLE_PLACES_API_KEY;
 
-    if (response && response.body && response.body.features && response.body.features.length > 0) {
-      const [longitude, latitude] = response.body.features[0].center;
-      console.log(`✅ Geocoded "${address}" to [${latitude}, ${longitude}]`);
+    if (!apiKey || apiKey === 'YOUR_GOOGLE_PLACES_API_KEY_HERE') {
+      console.error('❌ Google Places API key is not configured');
+      return null;
+    }
+
+    // Use Google Places API (New) - Text Search to get coordinates
+    const textSearchUrl = 'https://places.googleapis.com/v1/places:searchText';
+    const response = await fetch(textSearchUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Goog-Api-Key': apiKey,
+        'X-Goog-FieldMask': 'places.id,places.displayName,places.location'
+      },
+      body: JSON.stringify({
+        textQuery: address
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error(`❌ Places API error for "${address}":`, errorData);
+      return null;
+    }
+
+    const data = await response.json();
+
+    if (data.places && data.places.length > 0) {
+      const place = data.places[0];
+      const latitude = place.location.latitude;
+      const longitude = place.location.longitude;
+
+      console.log(`✅ Geocoded "${address}" to [${latitude}, ${longitude}] using Google Places API`);
 
       // Save coordinates back to Notion
       try {
@@ -270,8 +292,169 @@ app.get('/api/place-photo', async (req, res) => {
   }
 });
 
+// API endpoint to search places using Google Places API (New) - Autocomplete
+app.get('/api/places-search', async (req, res) => {
+  try {
+    const { query } = req.query;
+    const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+
+    if (!query || query.trim().length < 2) {
+      return res.json({ places: [] });
+    }
+
+    if (!apiKey || apiKey === 'YOUR_GOOGLE_PLACES_API_KEY_HERE') {
+      return res.status(500).json({ error: 'Google Places API key is not configured' });
+    }
+
+    console.log(`🔍 Searching Google Places for: "${query}"`);
+
+    // Use the new Places API (New) - Text Search endpoint
+    const textSearchUrl = 'https://places.googleapis.com/v1/places:searchText';
+    const textSearchResponse = await fetch(textSearchUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Goog-Api-Key': apiKey,
+        'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.location,places.types,places.photos'
+      },
+      body: JSON.stringify({
+        textQuery: query,
+        languageCode: 'en',
+        maxResultCount: 10,
+        // Restrict search to Japan only
+        locationRestriction: {
+          rectangle: {
+            low: {
+              latitude: 24.0,  // Southern tip of Japan (Ryukyu Islands)
+              longitude: 122.0  // Western edge
+            },
+            high: {
+              latitude: 46.0,  // Northern tip (Hokkaido)
+              longitude: 154.0  // Eastern edge
+            }
+          }
+        }
+      })
+    });
+
+    if (!textSearchResponse.ok) {
+      const errorData = await textSearchResponse.json();
+      console.error('Places API error:', errorData);
+      return res.json({ places: [], error: errorData.error?.message });
+    }
+
+    const textSearchData = await textSearchResponse.json();
+
+    if (!textSearchData.places || textSearchData.places.length === 0) {
+      return res.json({ places: [] });
+    }
+
+    // Format the places data for frontend
+    const places = textSearchData.places.map(place => {
+      // Get the first photo if available
+      let photoUrl = null;
+      if (place.photos && place.photos.length > 0) {
+        const photoName = place.photos[0].name;
+        photoUrl = `https://places.googleapis.com/v1/${photoName}/media?key=${apiKey}&maxWidthPx=100`;
+      }
+
+      return {
+        id: place.id,
+        name: place.displayName?.text || 'Unnamed Place',
+        address: place.formattedAddress || '',
+        latitude: place.location?.latitude,
+        longitude: place.location?.longitude,
+        coordinates: [place.location?.longitude, place.location?.latitude],
+        types: place.types || [],
+        photoUrl: photoUrl,
+        // Mark this as a search result (not from Notion)
+        isSearchResult: true
+      };
+    });
+
+    console.log(`✅ Found ${places.length} places for "${query}"`);
+    res.json({ places });
+  } catch (error) {
+    console.error('Error searching places:', error);
+    res.status(500).json({ error: error.message, places: [] });
+  }
+});
+
+// API endpoint to add a new location to Notion
+app.post('/api/add-location', async (req, res) => {
+  try {
+    const { name, address, latitude, longitude } = req.body;
+
+    if (!name || !latitude || !longitude) {
+      return res.status(400).json({ error: 'Missing required fields: name, latitude, longitude' });
+    }
+
+    const dataSourceId = process.env.VITE_NOTION_DATABASE_ID;
+
+    if (!dataSourceId) {
+      return res.status(500).json({ error: 'VITE_NOTION_DATABASE_ID is not configured' });
+    }
+
+    console.log(`📍 Adding new location to Notion: "${name}"`);
+
+    // Create a new page in the Notion database
+    const response = await notion.pages.create({
+      parent: {
+        type: 'data_source_id',
+        data_source_id: dataSourceId,
+      },
+      properties: {
+        Nombre: {
+          title: [
+            {
+              text: {
+                content: name,
+              },
+            },
+          ],
+        },
+        Address: {
+          rich_text: [
+            {
+              text: {
+                content: address || '',
+              },
+            },
+          ],
+        },
+        Latitude: {
+          rich_text: [
+            {
+              text: {
+                content: latitude.toString(),
+              },
+            },
+          ],
+        },
+        Longitude: {
+          rich_text: [
+            {
+              text: {
+                content: longitude.toString(),
+              },
+            },
+          ],
+        },
+      },
+    });
+
+    console.log(`✅ Added location "${name}" to Notion with ID: ${response.id}`);
+    res.json({ success: true, id: response.id });
+  } catch (error) {
+    console.error('Error adding location to Notion:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`🚀 Backend server running at http://localhost:${PORT}`);
   console.log(`📍 Locations API: http://localhost:${PORT}/api/locations`);
   console.log(`📷 Place Photos API: http://localhost:${PORT}/api/place-photo`);
+  console.log(`🔍 Places Search API: http://localhost:${PORT}/api/places-search`);
+  console.log(`➕ Add Location API: http://localhost:${PORT}/api/add-location`);
 });

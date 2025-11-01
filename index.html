@@ -17,6 +17,29 @@
     </div>
     <div id="map"></div>
 
+    <!-- Floating navigation menu -->
+    <div class="floating-nav-container">
+      <nav class="floating-nav">
+        <button class="nav-button" id="nav-categories" title="Categories">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="7" height="7"/>
+            <rect x="14" y="3" width="7" height="7"/>
+            <rect x="14" y="14" width="7" height="7"/>
+            <rect x="3" y="14" width="7" height="7"/>
+          </svg>
+          <span>Categories</span>
+        </button>
+        <button class="nav-button" id="nav-search" title="Search">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/>
+            <path d="M21 21l-4.35-4.35"/>
+          </svg>
+          <span>Search</span>
+        </button>
+      </nav>
+      <div id="nav-panel-container"></div>
+    </div>
+
     <!-- Bottom card for location details -->
     <div id="location-card" class="location-card">
       <div class="card-handle"></div>

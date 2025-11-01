@@ -170,7 +170,7 @@ function initializeDragToDismiss() {
 /**
  * Show location details in bottom card
  */
-async function showLocationCard(location, map) {
+export async function showLocationCard(location, map, isSearchResult = false) {
   const card = document.getElementById('location-card');
   const pinColor = location.typeColor ? getNotionColor(location.typeColor) : '#FF0000';
 
@@ -180,6 +180,15 @@ async function showLocationCard(location, map) {
   // Build chips
   const chipsContainer = document.getElementById('card-chips');
   chipsContainer.innerHTML = '';
+
+  // Add search result badge if it's from Google Places
+  if (isSearchResult) {
+    const searchChip = document.createElement('span');
+    searchChip.className = 'chip chip-search-result';
+    searchChip.textContent = 'Search Result';
+    chipsContainer.appendChild(searchChip);
+  }
+
   if (location.type) {
     const typeChip = document.createElement('span');
     typeChip.className = 'chip chip-type';
@@ -224,8 +233,76 @@ async function showLocationCard(location, map) {
     photosContainer.innerHTML = '<div class="no-photos">No photos available</div>';
   }
 
+  // Add "Add to Map" button for search results
+  let actionsContainer = document.getElementById('card-actions');
+  if (!actionsContainer) {
+    actionsContainer = document.createElement('div');
+    actionsContainer.id = 'card-actions';
+    actionsContainer.className = 'card-actions';
+    card.querySelector('.card-content').appendChild(actionsContainer);
+  }
+
+  actionsContainer.innerHTML = '';
+
+  if (isSearchResult) {
+    const addButton = document.createElement('button');
+    addButton.className = 'btn-add-to-map';
+    addButton.textContent = 'Add to Map';
+    addButton.onclick = () => addSearchResultToNotion(location);
+    actionsContainer.appendChild(addButton);
+  }
+
   // Show the card with animation
   card.classList.add('active');
+}
+
+/**
+ * Add a search result to Notion database
+ */
+async function addSearchResultToNotion(location) {
+  const button = document.querySelector('.btn-add-to-map');
+  const originalText = button.textContent;
+
+  try {
+    button.textContent = 'Adding...';
+    button.disabled = true;
+
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+    const response = await fetch(`${apiUrl}/api/add-location`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        name: location.name,
+        address: location.address,
+        latitude: location.latitude,
+        longitude: location.longitude,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to add location');
+    }
+
+    button.textContent = 'Added!';
+    button.classList.add('success');
+
+    // Refresh the page after 1 second to show the new location
+    setTimeout(() => {
+      window.location.reload();
+    }, 1000);
+  } catch (error) {
+    console.error('Error adding location:', error);
+    button.textContent = 'Error - Try Again';
+    button.classList.add('error');
+    button.disabled = false;
+
+    setTimeout(() => {
+      button.textContent = originalText;
+      button.classList.remove('error');
+    }, 2000);
+  }
 }
 
 /**
@@ -256,12 +333,6 @@ export function addMarkersToMap(map, locations) {
   const geojson = {
     type: 'FeatureCollection',
     features: locations.map(location => {
-      console.log('Processing location:', JSON.stringify({
-        id: location.id,
-        name: location.name,
-        address: location.address,
-        coordinates: location.coordinates
-      }, null, 2));
       return {
         type: 'Feature',
         geometry: {
@@ -286,14 +357,87 @@ export function addMarkersToMap(map, locations) {
     }),
   };
 
+  console.log('=== MAP PLOTTING DEBUG ===');
+  console.log('Total GeoJSON features created:', geojson.features.length);
+  console.log('Sample feature:', JSON.stringify(geojson.features[0], null, 2));
+
+  // Check for any features with invalid coordinates
+  const invalidFeatures = geojson.features.filter(f => {
+    const coords = f.geometry.coordinates;
+    return !coords || !Array.isArray(coords) || coords.length !== 2 ||
+           typeof coords[0] !== 'number' || typeof coords[1] !== 'number' ||
+           isNaN(coords[0]) || isNaN(coords[1]);
+  });
+
+  if (invalidFeatures.length > 0) {
+    console.warn('Found', invalidFeatures.length, 'features with invalid coordinates:', invalidFeatures);
+  }
+
+  // Check for duplicate coordinates
+  const coordMap = new Map();
+  geojson.features.forEach(f => {
+    const key = f.geometry.coordinates.join(',');
+    if (!coordMap.has(key)) {
+      coordMap.set(key, []);
+    }
+    coordMap.get(key).push(f.properties.name);
+  });
+
+  const duplicates = Array.from(coordMap.entries()).filter(([_, names]) => names.length > 1);
+  if (duplicates.length > 0) {
+    console.warn('=== OVERLAPPING MARKERS FOUND ===');
+    console.warn('Found', duplicates.length, 'coordinate positions with multiple markers:');
+    duplicates.forEach(([coords, names]) => {
+      console.warn(`  ${coords}: ${names.length} locations - ${names.join(', ')}`);
+    });
+    const totalOverlapping = duplicates.reduce((sum, [_, names]) => sum + names.length, 0);
+    console.warn(`Total locations affected: ${totalOverlapping} out of ${geojson.features.length}`);
+    console.warn('Applying small offsets to separate overlapping markers...');
+
+    // Apply small offsets to overlapping markers
+    const offsetDistance = 0.0008; // Small offset in degrees (roughly 80-90 meters)
+    const coordCounts = new Map();
+
+    geojson.features.forEach(feature => {
+      const key = feature.geometry.coordinates.join(',');
+      const count = coordMap.get(key).length;
+
+      if (count > 1) {
+        // Get current index for this coordinate
+        if (!coordCounts.has(key)) {
+          coordCounts.set(key, 0);
+        }
+        const index = coordCounts.get(key);
+        coordCounts.set(key, index + 1);
+
+        // Calculate offset in a circular pattern
+        const angle = (index / count) * 2 * Math.PI;
+        const offsetLng = Math.cos(angle) * offsetDistance;
+        const offsetLat = Math.sin(angle) * offsetDistance;
+
+        // Apply offset
+        feature.geometry.coordinates[0] += offsetLng;
+        feature.geometry.coordinates[1] += offsetLat;
+      }
+    });
+  } else {
+    console.log('No duplicate coordinates found - all markers are unique');
+  }
+
   // Add a GeoJSON source with clustering enabled
   map.addSource('locations', {
     type: 'geojson',
     data: geojson,
     cluster: true,
-    clusterMaxZoom: 10, // Max zoom to cluster points on (stops clustering at zoom 11+)
-    clusterRadius: 50, // Radius of each cluster when clustering points
+    clusterMaxZoom: 8, // Max zoom to cluster points on (stops clustering at zoom 12+)
+    clusterRadius: 50, // Radius of each cluster when clustering points (in pixels)
   });
+
+  // Store the original geojson data globally for filtering
+  window.mapLocationsData = {
+    originalGeoJSON: geojson,
+    map: map
+  };
 
   // Add cluster circles layer
   map.addLayer({
@@ -420,7 +564,15 @@ export function addMarkersToMap(map, locations) {
     map.getCanvas().style.cursor = '';
   });
 
-  console.log(`Added ${locations.length} locations to the map with clustering enabled`);
+  console.log(`Added ${locations.length} locations to the map with clustering disabled`);
+
+  // After layers are added, check how many features are being rendered
+  setTimeout(() => {
+    const renderedFeatures = map.querySourceFeatures('locations');
+    console.log('=== RENDERED FEATURES CHECK ===');
+    console.log('Total features in source:', renderedFeatures.length);
+    console.log('Features on screen:', map.queryRenderedFeatures({ layers: ['unclustered-point'] }).length);
+  }, 1000);
 
   // Animate to Japan and fit map to show all markers if there are any
   if (locations.length > 0) {

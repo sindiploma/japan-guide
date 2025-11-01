@@ -1,6 +1,7 @@
 import './styles.scss';
 import { initializeMap, addMarkersToMap } from './map.js';
 import { fetchLocationsFromNotion } from './notionClient.js';
+import { initializeNavigation } from './navigation.js';
 
 /**
  * Show error message to user
@@ -41,6 +42,11 @@ async function init() {
         // Fetch locations from Notion
         const locations = await fetchLocationsFromNotion();
 
+        console.log('=== LOCATION COUNT DEBUG ===');
+        console.log('Total locations fetched:', locations.length);
+        console.log('Locations with coordinates:', locations.filter(l => l.coordinates && Array.isArray(l.coordinates) && l.coordinates.length === 2).length);
+        console.log('Locations missing coordinates:', locations.filter(l => !l.coordinates || !Array.isArray(l.coordinates) || l.coordinates.length !== 2).length);
+
         if (locations.length === 0) {
           showError('No locations found in Notion database. Please add some locations with coordinates.');
           return;
@@ -48,6 +54,9 @@ async function init() {
 
         // Add markers to the map
         addMarkersToMap(map, locations);
+
+        // Initialize navigation menu
+        initializeNavigation(map, locations);
 
         // Hide loading indicator
         hideLoading();
